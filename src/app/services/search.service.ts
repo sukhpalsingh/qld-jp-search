@@ -23,6 +23,10 @@ export class SearchService {
         private loadingController: LoadingController
     ) { }
 
+    escapeString(content) {
+        return content.replace(/'/g, '&#39');
+    }
+
     async createSchema() {
         this.loading = await this.loadingController.create({
             message: "Populating data, please wait...",
@@ -55,35 +59,43 @@ export class SearchService {
                 'suburb varchar, ' +
                 'operating_hours varchar)');
 
-                this.sql.push('CREATE TABLE IF NOT EXISTS opening_hours (' +
+                this.sql.push(
+                    'CREATE TABLE IF NOT EXISTS opening_hours (' +
                         'id integer, ' +
                         'day varchar, ' +
                         'start_time varchar, ' +
                         'end_time varchar' +
-                    ')');
-                this.sql.push('DELETE FROM places; DELETE FROM opening_hours');
+                    ')'
+                );
 
-                this.http.get(this.url + '?sql=SELECT * from "652252e9-e21a-43fd-b761-3592b365fb28" limit 50')
-                .subscribe(response => {
-                    this.populateData(response['result']['records']);
-
-                    console.log(this.sql);
-                    db.sqlBatch(this.sql)
-                    .then(() => {
-                        console.log('completed');
-                        db.executeSql(
-                            'SELECT * from places order by id',
-                            []
-                        ).then((data) => {
-                            console.log(data.rows.length);
+                db.sqlBatch(this.sql).then(() => {
+                    db.executeSql(
+                        'SELECT count(*) as count from places',
+                        []
+                    ).then((data) => {
+                        if (data.rows.item(0).count > 0) {
                             this.loading.dismiss();
-                        })
-                        .catch(e => console.log(e));
+                        } else {
+                            this.fetchData(db);
+                        }
                     })
                     .catch(e => console.log(e));
                 });
             })
             .catch(() => console.log('not able to create database'));
+        });
+    }
+
+    fetchData(db) {
+        this.sql = [];
+        this.sql.push('DELETE FROM places; DELETE FROM opening_hours');
+        this.http.get(this.url + '?sql=SELECT * from "652252e9-e21a-43fd-b761-3592b365fb28"')
+        .subscribe(response => {
+            this.populateData(response['result']['records']);
+
+            db.sqlBatch(this.sql).then(() => {
+                this.loading.dismiss();
+            }).catch(e => console.log(e));
         });
     }
 
@@ -111,17 +123,17 @@ export class SearchService {
             + 'operating_hours' +
         ') VALUES ('
             + id + ','
-            + "'" + record['Title'] + "',"
-            + "'" + record['Services'] + "',"
-            + "'" + record['Counter type'] + "',"
-            + "'" + record['Address 1'] + "',"
-            + "'" + record['Address 2'] + "',"
-            + "'" + record['Email'] + "',"
-            + "'" + record['Phone'] + "',"
-            + "'" + record['Location'] + "',"
-            + "'" + record['Postcode'] + "',"
-            + "'" + record['Suburb'] + "',"
-            + "'" + record['Operating hours'] + "'" +
+            + "'" + this.escapeString(record['Title']) + "',"
+            + "'" + this.escapeString(record['Services']) + "',"
+            + "'" + this.escapeString(record['Counter type']) + "',"
+            + "'" + this.escapeString(record['Address 1']) + "',"
+            + "'" + this.escapeString(record['Address 2']) + "',"
+            + "'" + this.escapeString(record['Email']) + "',"
+            + "'" + this.escapeString(record['Phone']) + "',"
+            + "'" + this.escapeString(record['Location']) + "',"
+            + "'" + this.escapeString(record['Postcode']) + "',"
+            + "'" + this.escapeString(record['Suburb']) + "',"
+            + "'" + this.escapeString(record['Operating hours']) + "'" +
         ')');
 
         var days = ['Mon', 'Tues', 'Wed', 'Thurs', 'Fri', 'Sat', 'Sun'];
