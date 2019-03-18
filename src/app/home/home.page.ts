@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { SearchService } from '../services/search.service';
 
 @Component({
   selector: 'app-home',
@@ -7,4 +8,7 @@ import { Component } from '@angular/core';
 })
 export class HomePage {
 
+    constructor(private searchService: SearchService) {
+        this.searchService.createSchema();
+    }
 }
